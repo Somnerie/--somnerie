@@ -1,0 +1,65 @@
+/* ============================================================
+   themes.css
+   主题系统的入口（目前只有 base.css 里的默认深色主题在生效）。
+
+   以后加新主题（Paper / Newspaper / Magazine / Minimal……）时，
+   不需要改 base.css，也不需要改 JS，只要在这里用
+   [data-theme="xxx"] 覆盖 base.css 里已经定义好的那套变量即可，
+   例如：
+
+   [data-theme="paper"] {
+     --bg: #EDE8DD;
+     --surface: #FBF8F2;
+     --text: #2B2A28;
+     --accent: #A3623F;
+     ...
+   }
+
+   然后在 JS 里给 <body> 或 #canvas 切换 data-theme 属性，
+   其余所有用到 var(--xxx) 的地方会自动跟着变。
+   ============================================================ */
+
+/* UI 昼夜主题。画布正文默认跟随主题反转；用户明确设置的行内颜色不被强制覆盖，避免破坏作品本身的配色。 */
+body[data-theme="light"] {
+  --bg: #E7E7E9;
+  --surface: #FBFBFC;
+  --surface-dim: #F1F1F3;
+  --surface-sunken: #E2E2E5;
+  --hover: rgba(0, 0, 0, 0.06);
+  --text: #1D1F22;
+  --text-secondary: #4B5057;
+  --text-tertiary: #737982;
+  --border: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --canvas-text: #1D1F22;
+  --accent: #426FD7;
+  --accent-hover: #527FE4;
+
+  /* 浅色主题下阴影要淡得多，高光换成真正的白，深色投影收窄避免“脏” */
+  --shadow-raised:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 4px 12px rgba(31, 35, 43, 0.08),
+    0 1px 2px rgba(31, 35, 43, 0.06);
+  --shadow-raised-sm:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 2px 6px rgba(31, 35, 43, 0.07);
+  --shadow-inset:
+    inset 0 2px 5px rgba(31, 35, 43, 0.12),
+    inset 0 1px 0 rgba(31, 35, 43, 0.05);
+  --shadow-float:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 14px 32px rgba(31, 35, 43, 0.14),
+    0 2px 8px rgba(31, 35, 43, 0.08);
+}
+body[data-theme="light"] #canvas {
+  box-shadow: 0 10px 36px rgba(31, 35, 43, 0.10);
+}
+body[data-theme="light"] .editor-panel { background: #E5E5E7; }
+body[data-theme="light"] .mobile-zoom-controls { background: rgba(251,251,252,.94); }
+
+/* 默认折叠时仅保留标题/控制钮；模板面板折叠态保持实体背景，避免透明按钮漂浮得太突兀。 */
+.col-side.collapsed .side-panel {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-raised-sm) !important;
+}

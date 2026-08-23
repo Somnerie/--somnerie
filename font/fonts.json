@@ -1,0 +1,39 @@
+{
+  "fonts": [
+    {
+      "family": "MiSans",
+      "label": "MiSans",
+      "file": "MiSans-Regular.woff2",
+      "format": "woff2",
+      "fallback": "'Microsoft YaHei','PingFang SC',sans-serif"
+    },
+    {
+      "family": "HuiWenMingChao",
+      "label": "汇文明朝体",
+      "file": "Huiwenmingchaoti.woff2",
+      "format": "woff2",
+      "fallback": "'Songti SC','SimSun',serif"
+    },
+    {
+      "family": "LXGWWenKai",
+      "label": "霞鹜文楷",
+      "file": "LXGWWenKai-Regular.woff2",
+      "format": "woff2",
+      "fallback": "'KaiTi',serif"
+    },
+    {
+      "family": "FZKaiTi",
+      "label": "方正楷体",
+      "file": "FangZhengKaiTiJianTi-1.woff2",
+      "format": "woff2",
+      "fallback": "'KaiTi','Kaiti SC',serif"
+    },
+    {
+      "family": "YunFengJingLongXingShu",
+      "label": "云峰惊龙行书",
+      "file": "YunFengJingLongXingShu-2.woff2",
+      "format": "woff2",
+      "fallback": "'KaiTi',serif"
+    }
+  ]
+}
