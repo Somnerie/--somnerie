@@ -29,9 +29,9 @@
       "fallback": "'KaiTi','Kaiti SC',serif"
     },
     {
-      "family": "YunFengJingLongXingShu",
-      "label": "云峰惊龙行书",
-      "file": "YunFengJingLongXingShu-2.woff2",
+      "family": "Huiwenzhengkai-v1.001",
+      "label": "汇文正楷",
+      "file": "Huiwenzhengkai-v1.001.woff2",
       "format": "woff2",
       "fallback": "'KaiTi',serif"
     }
