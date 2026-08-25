@@ -2817,6 +2817,7 @@
   }
 
   async function renderCanvasImage(scale) {
+    await document.fonts.ready; 
     if (!canvas.textContent.trim() && canvas.children.length === 0) {
       alert('画布是空的，请先粘贴或输入内容');
       return null;
@@ -2846,6 +2847,7 @@
           scale,
           useCORS: true,
           logging: false,
+          letterRendering: true, 
         });
       }
       // 有高亮：先截一张“透明底、只有文字/图片”的前景图（高亮背景已被临时隐藏），
@@ -2863,6 +2865,7 @@
           scale,
           useCORS: true,
           logging: false,
+          letterRendering: true, 
         });
       } finally {
         if (savedCanvasBg) canvas.style.background = savedCanvasBg;
@@ -2992,11 +2995,21 @@
     let missing = [];
     let manifestOk = false;
     try {
-      const resp = await fetch('font/fonts.json');
-      if (!resp.ok) throw new Error('fonts.json HTTP ' + resp.status);
+      const resp = await fetch('font/fontsv.1.0.2.json');
+      if (!resp.ok) throw new Error('fontsv.1.0.2.json HTTP ' + resp.status);
       const data = await resp.json();
       FONT_MANIFEST = data.fonts || [];
       manifestOk = true;
+      const styleEl = document.createElement('style');
+      styleEl.textContent = FONT_MANIFEST.map(f => `
+        @font-face {
+          font-family: '${f.family}';
+          src: url('font/${f.file}') format('${f.format || guessFormat(f.file)}');
+          ${f.weight ? `font-weight: ${f.weight};` : ''}
+          font-display: swap;
+        }
+      `).join('\n');
+      document.head.appendChild(styleEl);
       missing = await loadFontsFromManifest(FONT_MANIFEST);
       buildFontSelects(FONT_MANIFEST);
     } catch (e) {

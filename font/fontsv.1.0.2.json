@@ -15,13 +15,6 @@
       "fallback": "'Songti SC','SimSun',serif"
     },
     {
-      "family": "LXGWWenKai",
-      "label": "霞鹜文楷",
-      "file": "LXGWWenKai-Regular.woff2",
-      "format": "woff2",
-      "fallback": "'KaiTi',serif"
-    },
-    {
       "family": "FZKaiTi",
       "label": "方正楷体",
       "file": "FangZhengKaiTiJianTi-1.woff2",
@@ -29,11 +22,25 @@
       "fallback": "'KaiTi','Kaiti SC',serif"
     },
     {
-      "family": "Huiwenzhengkai-v1.001",
-      "label": "汇文正楷",
-      "file": "Huiwenzhengkai-v1.001.woff2",
+      "family": "SourceHanSerifCN-Regular",
+      "label": "思源宋体",
+      "file": "SourceHanSerifCN-Regular.woff2",
+      "format": "woff2",
+      "fallback": "serif"
+    },
+    {
+      "family": "LXGWWenKai",
+      "label": "霞鹜文楷",
+      "file": "LXGWWenKai-Regular.woff2",
       "format": "woff2",
       "fallback": "'KaiTi',serif"
+    },
+    {
+      "family": "YunFengJingLongXingShu-2",
+      "label": "云峰惊龙行书",
+      "file": "YunFengJingLongXingShu-2.woff2",
+      "format": "woff2",
+      "fallback": "serif"
     }
   ]
 }
