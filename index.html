@@ -88,7 +88,7 @@
       <button id="toolbarToggle" class="toolbar-toggle" type="button" title="折叠工具栏" aria-expanded="true">●</button>
       <div class="mode-toggle" id="modeToggle" role="group" aria-label="编辑器模式">
         <button id="modeWriteBtn" class="mode-btn" type="button" title="写入模式：可以调出键盘打字" aria-pressed="true">写入</button>
-        <button id="modeEditBtn" class="mode-btn" type="button" title="编辑模式：不弹键盘、不能打字，只能选中文字调格式" aria-pressed="false">编辑</button>
+        <button id="modeEditBtn" class="mode-btn" type="button" title="排版模式：不弹键盘、不能打字，只能选中文字调格式" aria-pressed="false">排版</button>
       </div>
       <div class="app-bar-actions">
         <div class="clear-menu-wrap">
@@ -112,7 +112,6 @@
           <button id="exportMenuBtn" type="button" title="选择导出内容">导出 ▾</button>
           <div class="export-menu" id="exportMenu" hidden>
             <button type="button" data-export-action="png">导出图片</button>
-            <button type="button" data-export-action="png-hd">导出高清图片</button>
             <button type="button" data-export-action="split-zip">切分图片并打包</button>
             <button type="button" data-export-action="json">导出数据</button>
           </div>
@@ -133,10 +132,10 @@
       <!-- 第二行：段落 -->
       <div class="toolbar" id="paraToolbar">
         <button class="grp-toggle" type="button" title="折叠段落区">段落 <span class="grp-caret"> ▼ </span></button>
+        <div class="color-controls" id="paraTextColorControls"></div>
         <select id="paraFontFamily" data-gated title="段落字体">
           <option value="" hidden>字体</option>
         </select>
-        <div class="color-controls" id="paraTextColorControls"></div>
         <div class="para-layout-controls">
           <button data-align="left" data-gated type="button" title="左对齐">左</button>
           <button data-align="center" data-gated type="button" title="居中">中</button>
@@ -174,7 +173,7 @@
            并以 .editor-panel（居中）为基准在屏幕上水平居中。 -->
       <div class="canvas-metrics" id="canvasMetrics" aria-live="polite">画布：宽 0 px × 高 0 px</div>
       <div class="canvas-scroll">
-        <div id="canvas" contenteditable="true" data-placeholder="输入内容…"></div>
+        <div id="canvas" contenteditable="true" data-placeholder="Tip：您可以通过右上角的【导入】按钮-【站内模板】查看本网站的使用指南。"></div>
       </div>
 
       <div class="mobile-zoom-controls" id="mobileZoomControls" aria-label="移动端画布缩放">
@@ -216,7 +215,7 @@
 
   let templates = [];
   let tplSeq = 0;
-  const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'BLOCKQUOTE', 'LI'];
+  const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'LI', 'PRE', 'UL', 'OL', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD'];
 
   // Enter 统一生成 <p>，保证段落/行距一致
   try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (e) {}
@@ -759,7 +758,6 @@
   }
 
   /* ============ 滑块控件（range + number 双向同步） ============ */
-  let highlightPad = 2;
   // 行内样式：只作用于已捕获的选中文字（span 包裹），无选区则不做任何事
   function captureInlineRange() {
     const sel = window.getSelection();
@@ -851,32 +849,23 @@
       guardOverride: true, guardMessage: '已覆盖选中范围内的段落字号。',
       apply: v => applyInlineStyle('fontSize', v + 'px'),
       reflect: () => null },   // 不自动回显“选中文字的字号”，避免拖动滑块时读取字号触发重排抖动
-
-    { label: '高亮', id: 'highlightPad', min: 0, max: 12, step: 1, value: 2, onStart: captureInlineRange,
-      apply: v => { highlightPad = parseInt(v, 10) || 0; applyHighlightPad(); },
-      reflect: () => highlightPad },
   ];
   const paraSliders = [
     { label: '字号', id: 'paraFontSize', min: 1, max: 200, rangeMin: 8, rangeMax: 72, step: 1, value: 16,
       apply: v => setBlockStyle('fontSize', v + 'px'),
       reflect: b => Math.round(parseFloat(getComputedStyle(b).fontSize)) },
-    { label: '换行宽度', id: 'paraWrapWidth', min: 100, max: 1200, step: 10, value: 500,
-      // 只改变“段落排版宽度”这一个参数，换行位置完全交给浏览器按正常横排规则重新流动；
-      // 不碰 line-height，也不手写任何逐行定位逻辑（详见 applyParagraphAlignment）。
-      apply: v => { getTargetBlocks().forEach(b => { b.dataset.wrapWidth = v; }); getTargetBlocks().forEach(applyParagraphAlignment); },
-      reflect: b => b.dataset.wrapWidth ? Number(b.dataset.wrapWidth) : Math.round(parseFloat(getComputedStyle(b).width)) },
     { label: '字距', id: 'paraLetterSpacing', min: -2, max: 50, step: 0.5, value: 0,
       apply: v => setBlockStyle('letterSpacing', v + 'px'),
       reflect: b => parseFloat(getComputedStyle(b).letterSpacing) || 0 },
     { label: '行距', id: 'lineHeight', min: 1, max: 10, step: 0.1, value: 1.8,
       apply: v => setBlockStyle('lineHeight', v),
       reflect: b => { const cs = getComputedStyle(b); const fs = parseFloat(cs.fontSize); return fs ? Math.round((parseFloat(cs.lineHeight) / fs) * 10) / 10 : 1.8; } },
-    { label: '段前', id: 'marginTop', min: -300, max: 150, step: 1, value: 0,
+    { label: '段前', id: 'marginTop', min: 0, max: 150, step: 1, value: 0,
       apply: v => setBlockStyle('marginTop', v + 'px'),
-      reflect: b => parseFloat(getComputedStyle(b).marginTop) || 0 },
-    { label: '段后', id: 'marginBottom', min: -300, max: 150, step: 1, value: 14,
+      reflect: b => Math.max(0, parseFloat(getComputedStyle(b).marginTop) || 0) },
+    { label: '段后', id: 'marginBottom', min: 0, max: 150, step: 1, value: 14,
       apply: v => setBlockStyle('marginBottom', v + 'px'),
-      reflect: b => parseFloat(getComputedStyle(b).marginBottom) || 0 },
+      reflect: b => Math.max(0, parseFloat(getComputedStyle(b).marginBottom) || 0) },
   ];
   const canvasSliders = [
     { label: '宽', id: 'canvasWidth', min: 50, max: 1200, step: 10, value: 640,
@@ -885,9 +874,9 @@
       apply: v => { canvas.style.paddingLeft = v + 'px'; } },
     { label: '右距', id: 'padRight', min: 0, max: 160, step: 2, value: 70, linkGroup: 'horizontalMargin',
       apply: v => { canvas.style.paddingRight = v + 'px'; } },
-    { label: '上边距', id: 'padTop', min: 0, max: 200, step: 2, value: 80, linkGroup: 'verticalMargin',
+    { label: '上边距', id: 'padTop', min: 0, max: 200, step: 2, value: 50, linkGroup: 'verticalMargin',
       apply: v => { canvas.style.paddingTop = v + 'px'; } },
-    { label: '下边距', id: 'padBottom', min: 0, max: 160, step: 2, value: 40, linkGroup: 'verticalMargin',
+    { label: '下边距', id: 'padBottom', min: 0, max: 160, step: 2, value: 50, linkGroup: 'verticalMargin',
       apply: v => { canvas.style.paddingBottom = v + 'px'; } },
   ];
 
@@ -1093,23 +1082,11 @@
     const cs = getComputedStyle(b);
     const vertical = cs.writingMode.startsWith('vertical');
     if (!vertical) {
-      // 横排下，“换行宽度”滑块通过 dataset.wrapWidth 记录用户显式设置的排版宽度（px）。
-      // 没有设置过的段落维持老行为：宽度交给父容器（撑满），不做任何改动。
-      // 设置过之后，段落宽度变成一个独立于对齐方式的参数：只用于决定换行位置，
-      // text-align 仍然只负责“段落这个盒子里”文字怎么排；盒子本身在画布里靠左/居中/靠右，
-      // 才用 margin 来摆放（跟竖排的做法保持同一套思路，但宽度永远是用户设的 px 值，
-      // 不会被强制改写成 fit-content）。
-      if (b.dataset.wrapWidth) {
-        b.style.width = b.dataset.wrapWidth + 'px';
-        const align = cs.textAlign;
-        if (align === 'right') { b.style.marginLeft = 'auto'; b.style.marginRight = '0'; }
-        else if (align === 'center') { b.style.marginLeft = 'auto'; b.style.marginRight = 'auto'; }
-        else { b.style.marginLeft = '0'; b.style.marginRight = 'auto'; }
-      } else {
-        b.style.width = '';
-        b.style.marginLeft = '';
-        b.style.marginRight = '';
-      }
+      // 横排下，段落宽度交给父容器（撑满画布），不做显式收窄；
+      // 左/中/右对齐只用 text-align 控制文字在段落盒子内的排布。
+      b.style.width = '';
+      b.style.marginLeft = '';
+      b.style.marginRight = '';
       return;
     }
     const align = cs.textAlign;
@@ -1133,10 +1110,12 @@
     if (bootOverlay) bootOverlay.classList.toggle('hidden', !show);
     if (bootHint && hintText) bootHint.textContent = hintText;
   }
+  let toastTimer = null;
   function showToast(msg, ms) {
     const t = document.getElementById('bootToast'); if (!t) return;
+    if (toastTimer) clearTimeout(toastTimer);
     t.textContent = msg; t.hidden = false;
-    if (ms) setTimeout(() => { t.hidden = true; }, ms);
+    if (ms) toastTimer = setTimeout(() => { t.hidden = true; }, ms);
   }
   function guessFormat(file) {
     const m = /\.(woff2|woff|ttf|otf)$/i.exec(file || ''); return m ? m[1] : 'truetype';
@@ -1492,6 +1471,7 @@
         el.style.removeProperty('color');
         if (['SPAN', 'FONT'].includes(el.tagName) && !el.getAttribute('style')) {
           const parent = el.parentNode;
+          if (!parent) return;
           while (el.firstChild) parent.insertBefore(el.firstChild, el);
           parent.removeChild(el);
         }
@@ -1501,6 +1481,7 @@
     b.querySelectorAll('span, font').forEach(el => {
       if (!el.getAttribute('style') && !el.className) {
         const parent = el.parentNode;
+        if (!parent) return;
         while (el.firstChild) parent.insertBefore(el.firstChild, el);
         parent.removeChild(el);
       }
@@ -1530,31 +1511,6 @@
       }
     },
     onApply: (color) => applyInlineColorGuarded(color)
-  });
-
-  // 高亮：带内边距（高亮范围）的底色
-  function applyHighlightPad() {
-    if (!inlineRange) return;
-    const block = blockOf(inlineRange.commonAncestorContainer);
-    if (!block) return;
-    const startC = charOffsetInBlock(block, inlineRange.startContainer, inlineRange.startOffset);
-    const endC = charOffsetInBlock(block, inlineRange.endContainer, inlineRange.endOffset);
-    const span = findContainingSpan(block, startC, endC);
-    if (span) span.style.padding = highlightPad + 'px 3px';
-  }
-  function applyHighlight(color) {
-    if (!inlineRange) return;
-    snapshot();
-    applyInlineStyle('backgroundColor', color);
-    applyHighlightPad();
-  }
-
-  // ③ 高亮底色（行内高亮，选中文字底色）
-  buildColorControl(document.getElementById('fontColorControls'), {
-    id: 'paraBg', label: '高亮底色', title: '选中文字高亮', gated: true,
-    palette: my_PRESETS, defaultColor: '#FBFBFB',
-    onCapture: () => { captureInlineRange(); },
-    onApply: (color) => applyHighlight(color)
   });
 
   // ⑤ 画布背景
@@ -1682,7 +1638,9 @@
     // 时浏览器本就不会派发 paste 到这里，这里只是双保险。
     if (currentEditorMode === 'edit') { e.preventDefault(); return; }
     const files = e.clipboardData && e.clipboardData.files;
-    if (files && files.length && files[0].type.indexOf('image/') === 0) {
+    const f = files[0];
+    const isImage = f.type ? f.type.indexOf('image/') === 0 : /\.(png|jpe?g|gif|webp|bmp|svg)/i.test(f.name);
+    if (isImage) {
       e.preventDefault();
       const r = new FileReader();
       r.onload = ev => { canvas.focus(); document.execCommand('insertImage', false, ev.target.result); };
@@ -1690,7 +1648,7 @@
       return;
     }
     const html = e.clipboardData.getData('text/html');
-    if (html && html.indexOf('<') !== -1) {
+    if (html && /<[a-z][\s\S]*>/i.test(html)) {
       e.preventDefault();
       snapshot();
       document.execCommand('insertHTML', false, sanitizePaste(html));
@@ -1704,6 +1662,66 @@
       document.execCommand('insertHTML', false, plainToHtml(text));
       ensureParagraphBlocks(canvas);   // 块级归一化：把首行裸文本/行内元素包成 <p>
     }
+  });
+
+  // 拦截 Enter：在段落末尾按回车时，如果浏览器会克隆 span 到新段落，
+  // 就手动创建干净的空段落，避免继承上一段的行内样式（特别是那些
+  // 不该出现在 span 上的段落级样式如 text-align/white-space/background-color）。
+  canvas.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (currentEditorMode === 'edit') { e.preventDefault(); return; }
+    if (e.shiftKey) return; // Shift+Enter 插入 <br>，让浏览器处理
+
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+
+    const block = blockOf(range.startContainer);
+    if (!block) return;
+
+    // 判断是否在段落末尾：从光标到段落末尾还有非空白文字吗？
+    const tailRange = document.createRange();
+    tailRange.setStart(range.startContainer, range.startOffset);
+    tailRange.setEnd(block, block.childNodes.length);
+    const hasTextAfter = tailRange.toString().trim().length > 0;
+    if (hasTextAfter) return; // 在段落中间，让浏览器拆分 span，normalize 会清理
+
+    // 在段落末尾：检查最后一个"有意义"的子节点是不是 span
+    // （如果是文本/图片/br 以外的元素，且是 span，浏览器会克隆它）
+    const lastMeaningful = Array.from(block.childNodes).reverse().find(n => {
+      if (n.nodeType === Node.TEXT_NODE) return n.textContent.trim();
+      if (n.tagName === 'BR') return false;
+      return true;
+    });
+    if (!lastMeaningful || lastMeaningful.nodeType !== Node.ELEMENT_NODE || lastMeaningful.tagName !== 'SPAN') return;
+
+    // 浏览器会克隆 span，阻止默认行为，手动创建干净的空段落
+    e.preventDefault();
+    snapshot();
+
+    const newP = document.createElement('p');
+    newP.innerHTML = '<br>';
+
+    // 复制段落级样式（排除字体样式：颜色、字号、字体族、加粗、斜体、装饰线、高亮背景、内边距等）
+    const excludeFontProps = new Set([
+      'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+      'text-decoration', 'text-decoration-line', 'text-decoration-color', 'text-decoration-style'
+    ]);
+    for (let i = 0; i < block.style.length; i++) {
+      const prop = block.style[i];
+      if (!excludeFontProps.has(prop.toLowerCase())) {
+        newP.style.setProperty(prop, block.style.getPropertyValue(prop));
+      }
+    }
+
+    block.parentNode.insertBefore(newP, block.nextSibling);
+
+    // 移动光标到新段落
+    const r = document.createRange();
+    r.setStart(newP, 0);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
   });
 
   /* ============ 模板（存完整样式 JSON） ============ */
@@ -1750,7 +1768,7 @@
       try { nodeRange.selectNode(n); } catch (e) { continue; }
       const cmpStart = range.compareBoundaryPoints(Range.START_TO_END, nodeRange);
       const cmpEnd = range.compareBoundaryPoints(Range.END_TO_START, nodeRange);
-      if (cmpStart < 0 || cmpEnd > 0) continue; // 节点完全在选区外
+      if (cmpStart >= 0 || cmpEnd <= 0) continue; // 节点完全在选区外
       const el = n.parentElement;
       if (!el) continue;
       const cs = getComputedStyle(el);
@@ -1774,7 +1792,7 @@
       letterSpacing: cs.letterSpacing,
       fontWeight: cs.fontWeight,
       fontStyle: cs.fontStyle,
-      textDecoration: cs.textDecorationLine,
+      textDecorationLine: cs.textDecorationLine,
       lineHeight: fs ? Math.round((lh / fs) * 100) / 100 : cs.lineHeight,
     };
   }
@@ -1837,10 +1855,20 @@
   // ProjectStorage：IndexedDB 持久化存储层。编辑器 UI 不直接操作 IndexedDB。
   const projectStorage = new ProjectStorage();
 
-  function collectDraftData() {
-    return { format: 'longimage-editor', version: 1, html: canvas.innerHTML, canvasStyle: captureCanvasStyles(), savedAt: Date.now() };
-  }
-  let quotaWarned = false;
+function collectDraftData() {
+  const clone = canvas.cloneNode(true);
+
+  // 切分编辑器的 UI 属于临时界面元素，不属于用户项目数据
+  clone.querySelectorAll('.slice-editor-layer').forEach(el => el.remove());
+
+  return {
+    format: 'longimage-editor',
+    version: 1,
+    html: clone.innerHTML,
+    canvasStyle: captureCanvasStyles(),
+    savedAt: Date.now()
+  };
+}
 
   // 主落盘：写 IndexedDB。这是“用户编辑数据”唯一的主存储，完全独立于 HTTP Cache。
   function persistProject(data) {
@@ -2052,8 +2080,9 @@
   // 站内模板清单：对应 json/ 文件夹里的模版（静态部署时 index.html 与 json/ 同源，fetch 可正常读取）。
   // 新增站内模板：往 json/ 放一个 .json，并在下面列表里加一行 { name: '模板名', file: 'json/文件名.json' }。
   const SITE_TEMPLATES = [
-    { name: '内置效果展示', file: 'json/内置效果展示.json' },
+    { name: '使用指南', file: 'json/使用指南v1.0.3.json' },
     { name: '微信读书模板', file: 'json/微信读书模板.json' },
+    { name: '更新日志', file: 'json/更新日志v1.0.3.json' },
   ];
   function loadDraftData(data) {
     if (!data || typeof data !== 'object' || typeof data.html !== 'string') { alert('文件内容不是有效的草稿数据'); return; }
@@ -2196,17 +2225,13 @@
     if (action === 'paragraph' || action === 'font') return getTargetBlocks().length > 0 || !!inlineRange;
     return true;
   }
-  // 字体格式要清除的「行内属性」：包括颜色、高亮背景色、字号、字体族等。
-  // 高亮其实是通过 span 的 backgroundColor（=字形底色）和 padding（=高亮内边距）实现的，
-  // 所以这里必须覆盖 backgroundColor/padding，否则清除字体格式会残留高亮。
+  // 字体格式要清除的「行内属性」：包括颜色、字号、字体族等。
   const FONT_PROPS = [
-    'color', 'backgroundColor', 'fontSize', 'fontFamily', 'fontWeight',
+    'color', 'fontSize', 'fontFamily', 'fontWeight',
     'fontStyle', 'fontVariant', 'letterSpacing', 'wordSpacing', 'lineHeight',
     'textDecoration', 'textDecorationLine', 'textDecorationColor', 'textDecorationStyle',
-    'textTransform', 'verticalAlign', 'textShadow', 'padding', 'paddingLeft', 'paddingRight',
-    'paddingTop', 'paddingBottom'
+    'textTransform', 'verticalAlign', 'textShadow'
   ];
-  // 这些是「格式包装」标签：清掉格式时应当把它解包，让文字回到段落默认样式。
   const FORMAT_WRAPPER_TAGS = ['SPAN', 'FONT', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'MARK', 'SUP', 'SUB'];
 
   // range 是否完整覆盖某个元素的内容（用于判断该元素能否安全解包）。
@@ -2221,148 +2246,6 @@
   }
 
   // —— 把选区内的字体格式「剥掉」。
-  // 旧实现只解包「被选区完整覆盖」的包装标签；当选区只是部分覆盖某个 span 时，
-  // 该 span 会被原样留下，于是加粗/斜体/下划线/字号等整条格式都残留（甚至套娃）。
-  // 这正是「清除字体格式」删不干净、以及选中部分文字时格式跑到选区外的根因。
-  // 新实现：完全覆盖 → 解包；部分覆盖 → 按选区起点/终点把该 span 拆成
-  //   前（保留样式）+ 中（去掉样式）+ 后（保留样式）三段。
-  // 为安全起见，整个清理在「克隆体」上完成（避免 SplitText 破坏活 DOM 上的 Range），
-  // 再把克隆结果一次性写回画布。
-  function pathTo(root, node) {
-    const path = [];
-    let cur = node;
-    while (cur && cur !== root) {
-      const parent = cur.parentNode;
-      if (!parent) break;
-      path.unshift(Array.from(parent.childNodes).indexOf(cur));
-      cur = parent;
-    }
-    return path;
-  }
-  function nodeByPath(root, path) {
-    let node = root;
-    for (const idx of path) {
-      if (!node.childNodes[idx]) return null;
-      node = node.childNodes[idx];
-    }
-    return node;
-  }
-  function clampRangeToEl(el, range) {
-    const cr = document.createRange();
-    cr.selectNodeContents(el);
-    if (range.compareBoundaryPoints(Range.END_TO_START, cr) <= 0) return null;  // 选区在 el 之前
-    if (range.compareBoundaryPoints(Range.START_TO_END, cr) >= 0) return null;  // 选区在 el 之后
-    let sc = range.startContainer, so = range.startOffset;
-    if (range.compareBoundaryPoints(Range.START_TO_START, cr) < 0) { sc = el; so = 0; }
-    let ec = range.endContainer, eo = range.endOffset;
-    if (range.compareBoundaryPoints(Range.END_TO_END, cr) > 0) { ec = el; eo = el.childNodes.length; }
-    const r = document.createRange();
-    r.setStart(sc, so);
-    r.setEnd(ec, eo);
-    return r;
-  }
-  function rangeFullyCoversEl(clipped, el) {
-    const cr = document.createRange();
-    cr.selectNodeContents(el);
-    return clipped.compareBoundaryPoints(Range.START_TO_START, cr) <= 0 &&
-           clipped.compareBoundaryPoints(Range.END_TO_END, cr) >= 0;
-  }
-  function splitElAtBoundary(el, container, offset) {
-    // 在 (container, offset) 处把 el 拆成左右两个同标签副本（均保留自身样式）。
-    if (container.nodeType === Node.TEXT_NODE && offset > 0 && offset < container.length) {
-      container.splitText(offset);
-    }
-    const right = el.cloneNode(false);
-    const range = document.createRange();
-    range.setStart(container, offset);
-    range.setEnd(el, el.childNodes.length);
-    try {
-      const frag = range.extractContents();
-      if (frag.childNodes.length) right.appendChild(frag);
-    } catch (e) { /* 忽略 */ }
-    el.parentNode.insertBefore(right, el.nextSibling);
-    return { left: el, right };
-  }
-  function stripInlineFormat(node) {
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    if (node.getAttribute('style')) {
-      FONT_PROPS.forEach(prop => node.style.removeProperty(prop));
-      ['color', 'face', 'size'].forEach(attr => node.removeAttribute(attr));
-    }
-    Array.from(node.childNodes).forEach(stripInlineFormat);
-    if (FORMAT_WRAPPER_TAGS.includes(node.tagName) && (!node.getAttribute('style') || !node.getAttribute('style').trim())) {
-      while (node.firstChild) node.parentNode.insertBefore(node.firstChild, node);
-      node.remove();
-    }
-  }
-  function sliceCarrier(el, clipped) {
-    // 先按终点、再按起点拆分，得到「前 / 中 / 后」，中段（选区之内）清掉全部行内格式并解包。
-    const endSplit = splitElAtBoundary(el, clipped.endContainer, clipped.endOffset);
-    const startSplit = splitElAtBoundary(endSplit.left, clipped.startContainer, clipped.startOffset);
-    stripInlineFormat(startSplit.right);
-  }
-  function collectInlineCarriers(root) {
-    const out = [];
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    let n;
-    while ((n = walker.nextNode())) {
-      if (n === root || BLOCK_TAGS.includes(n.tagName)) continue;
-      const style = n.getAttribute('style');
-      const hasFontStyle = style && FONT_PROPS.some(p => n.style.getPropertyValue(p) !== '');
-      if (hasFontStyle || FORMAT_WRAPPER_TAGS.includes(n.tagName)) out.push(n);
-    }
-    return out;
-  }
-  // 计算 root 内某个边界点（container,offset）之前的字符数，用于跨拆分稳定定位选区。
-  function charOffsetOfBoundary(root, container, offset) {
-    const r = document.createRange();
-    try { r.setStart(root, 0); r.setEnd(container, offset); } catch (e) { return 0; }
-    return r.toString().length;
-  }
-  // 用「全局字符偏移」在 root 上重建 Range。拆分 span 会改变文本节点划分，但不会改变文本顺序，
-  // 所以每次迭代都用字符偏移重建 Range，避免旧 Range 的 offset 因文本节点被拆分而失效。
-  function rangeByCharOffsets(root, startChars, endChars) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    let n, acc = 0, sn = null, so = 0, en = null, eo = 0;
-    while ((n = walker.nextNode())) {
-      const len = n.textContent.length;
-      if (sn === null && startChars <= acc + len) { sn = n; so = startChars - acc; }
-      if (en === null && endChars <= acc + len) { en = n; eo = endChars - acc; }
-      if (sn && en) break;
-      acc += len;
-    }
-    if (!sn) { sn = root; so = 0; }
-    if (!en) { en = root; eo = root.childNodes.length; }
-    const r = document.createRange();
-    try { r.setStart(sn, so); r.setEnd(en, eo); return r; } catch (e) { return null; }
-  }
-  // 反复处理直到不再变化：完整覆盖的包装直接解包，部分覆盖的包装拆分后中段去掉格式。
-  // startChars/endChars = 选区起点/终点在 root 文本内容中的字符偏移（拆分 span 后仍稳定）。
-  function cleanInlineFormattingInRange(root, startChars, endChars) {
-    let guard = 0;
-    while (guard++ < 200) {
-      const range = rangeByCharOffsets(root, startChars, endChars);
-      if (!range) break;
-      const carriers = collectInlineCarriers(root);
-      let acted = false;
-      for (const el of carriers) {
-        if (!el.isConnected) continue;
-        const clipped = clampRangeToEl(el, range);
-        if (!clipped) continue;
-        if (rangeFullyCoversEl(clipped, el)) {
-          while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
-          el.remove();
-          acted = true;
-          break;
-        } else {
-          sliceCarrier(el, clipped);
-          acted = true;
-          break;
-        }
-      }
-      if (!acted) break;
-    }
-  }
   function clearFontFormat(rangeOverride) {
     let range = rangeOverride;
     // 允许没有预存 inlineRange、只是临时选中了一段文字时也能清除。
@@ -2751,109 +2634,6 @@
    * 普通导出 scale=2；高清导出允许更高倍率。分片导出先生成完整高清图，
    * 再按用户指定高度切成多张 PNG，最后使用 JSZip 打成一个 ZIP。
    */
-  /* ============ 高亮导出：按“实际换行结果”把跨行高亮拆成多个按行矩形 ============
-   * 背景（为什么要单独处理）：
-   * 网页里高亮就是一个 <span style="background-color:...; padding:...">，跨行时浏览器原生
-   * 会按每一行分别画背景，显示完全正常。但导出用的 html2canvas 在处理“带左右 padding、
-   * 又跨行的行内元素”时，是按这个 span 的一个整体包围盒画背景的，于是跨行高亮在导出图片里
-   * 会变成一个覆盖多行的大矩形（这是 html2canvas 自身对“带 padding 的跨行 inline 元素”
-   * 处理不精确导致的，不是本项目原有导出坐标转换逻辑的问题）。
-   *
-   * 解法：span 决定“选中了哪些文字”，交给浏览器 Range.getClientRects() 得到这些文字
-   * 实际排完版后分成了几行、每行的真实几何范围（这一步和网页显示用的是完全同一套
-   * 浏览器排版结果，因此换行宽度改变后会自动跟着变，不依赖任何保存下来的行数/坐标）。
-   * 拿到每行的矩形后：
-   *   1) 上下 padding 每行都补上；左 padding 只补在第一行、右 padding 只补在最后一行
-   *      （这跟浏览器对“跨行 inline 元素”的 padding 处理规则一致）。
-   *   2) 除最后一行外，其余每一行本来就是因为“碰到了段落的换行边界”才换的行，
-   *      所以视觉上应该延伸到该段落排版区域的对应边界，而不是停在这一行最后一个字符的
-   *      实际宽度上——但只在段落是左对齐/两端对齐（默认排版方向）时才延伸右边界，
-   *      右对齐时延伸左边界，居中对齐时行的位置本身就没有贴边界，不做延伸。
-   *   3) 最后一行永远只按实际文字范围（可能只是半行）。
-   * 这一步只影响“导出阶段怎么画高亮矩形”，不会改动画布里的 span 结构、不插入 <br>、
-   * 也不会碰当前的文字选区。
-   */
-  function isHighlightSpan(sp) {
-    const bg = sp.style.backgroundColor;
-    if (!bg || bg === 'transparent') return false;
-    const m = /rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(?:,\s*([\d.]+)\s*)?\)/.exec(bg);
-    if (m && m[1] !== undefined && parseFloat(m[1]) === 0) return false;
-    return true;
-  }
-  function collectHighlightSpans() {
-    return Array.from(canvas.querySelectorAll('span')).filter(isHighlightSpan);
-  }
-  function collectHighlightRects() {
-    const result = [];
-    collectHighlightSpans().forEach(span => {
-      let rects;
-      try {
-        const range = document.createRange();
-        range.selectNodeContents(span);
-        rects = Array.from(range.getClientRects()).filter(r => r.width > 0.5 && r.height > 0.5);
-      } catch (e) { return; }
-      if (!rects.length) return;
-      // 按 top 归并成“行”：同一行的多个 rect（例如高亮内部还有细分的行内节点）合并成一个横向矩形。
-      rects.sort((a, b) => a.top - b.top || a.left - b.left);
-      const lines = [];
-      rects.forEach(r => {
-        const last = lines[lines.length - 1];
-        if (last && Math.abs(r.top - last.top) < Math.max(2, last.height * 0.34)) {
-          last.left = Math.min(last.left, r.left);
-          last.right = Math.max(last.right, r.right);
-          last.top = Math.min(last.top, r.top);
-          last.bottom = Math.max(last.bottom, r.bottom);
-        } else {
-          lines.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
-        }
-      });
-      const cs = getComputedStyle(span);
-      const padTop = parseFloat(cs.paddingTop) || 0;
-      const padBottom = parseFloat(cs.paddingBottom) || 0;
-      const padLeft = parseFloat(cs.paddingLeft) || 0;
-      const padRight = parseFloat(cs.paddingRight) || 0;
-      const color = cs.backgroundColor;
-      const block = blockOf(span);
-      let align = 'left', contentLeft = null, contentRight = null;
-      if (block) {
-        align = getComputedStyle(block).textAlign;
-        const br = block.getBoundingClientRect();
-        const bcs = getComputedStyle(block);
-        contentLeft = br.left + (parseFloat(bcs.paddingLeft) || 0);
-        contentRight = br.right - (parseFloat(bcs.paddingRight) || 0);
-      }
-      lines.forEach((ln, idx) => {
-        const isFirst = idx === 0;
-        const isLast = idx === lines.length - 1;
-        let left = ln.left, right = ln.right;
-        // 非末行：视为“已经排到本段换行边界”的完整行，按对齐方式延伸到对应边界；
-        // 居中对齐时该行本身不贴边界，保持实测范围。
-        if (!isLast && block) {
-          if (align === 'right') left = contentLeft;
-          else if (align !== 'center') right = contentRight;
-        }
-        if (isFirst && !(!isLast && block && align === 'right')) left -= padLeft;
-        if (isLast) right += padRight;
-        result.push({
-          left, right,
-          top: ln.top - padTop,
-          bottom: ln.bottom + padBottom,
-          color,
-        });
-      });
-    });
-    return result.map(r => ({ left: r.left, top: r.top, width: r.right - r.left, height: r.bottom - r.top, color: r.color }))
-      .filter(r => r.width > 0.5 && r.height > 0.5);
-  }
-  // 导出前临时把所有高亮 span 的背景色隐藏（保留 padding/其它样式不变），
-  // 让 html2canvas 只负责画“纸面 + 文字”，高亮矩形另外手动合成；返回一个还原函数。
-  function suppressHighlightBackgrounds() {
-    const spans = collectHighlightSpans();
-    const saved = spans.map(sp => sp.style.backgroundColor);
-    spans.forEach(sp => { sp.style.backgroundColor = 'transparent'; });
-    return function restore() { spans.forEach((sp, i) => { sp.style.backgroundColor = saved[i]; }); };
-  }
-
   function ensureExportLibraries() {
     if (typeof html2canvas !== 'function') {
       alert('图片导出组件还没加载完成，请检查网络连接后重试');
@@ -2863,6 +2643,7 @@
   }
 
   async function renderCanvasImage(scale) {
+    await document.fonts.ready;
     if (!canvas.textContent.trim() && canvas.children.length === 0) {
       alert('画布是空的，请先粘贴或输入内容');
       return null;
@@ -2873,74 +2654,35 @@
       transform: canvas.style.transform,
       transformOrigin: canvas.style.transformOrigin,
       marginBottom: canvas.style.marginBottom,
+      //boxshadow也记住
+      boxShadow: canvas.style.boxShadow, 
     };
     canvas.style.transform = '';
     canvas.style.transformOrigin = '';
     canvas.style.marginBottom = '';
-    // 坐标转换沿用原有逻辑：html2canvas 直接对 canvas 元素截图，输出像素 = 页面坐标差 × scale，
-    // 这里只是把「页面坐标 → 输出图片坐标」这套换算，从 html2canvas 内部隐式的换算，
-    // 复用到我们手动画的高亮矩形上，没有引入新的坐标系统。
+    // 导出时先关掉投影
+    canvas.style.boxShadow = 'none';   
     const paperColor = getComputedStyle(canvas).backgroundColor;
-    const canvasRect = canvas.getBoundingClientRect();
-    const highlightRects = collectHighlightRects();
-    const restoreHighlight = highlightRects.length ? suppressHighlightBackgrounds() : null;
     try {
-      if (!highlightRects.length) {
-        // 没有任何高亮：跟修改前完全一样，直接截图，不引入额外合成开销/风险。
-        return await html2canvas(canvas, {
-          backgroundColor: paperColor,
-          scale,
-          useCORS: true,
-          logging: false,
-        });
-      }
-      // 有高亮：先截一张“透明底、只有文字/图片”的前景图（高亮背景已被临时隐藏），
-      // 再手动按 纸面 → 高亮 → 文字 的顺序合成，让高亮始终画在文字下面，不会盖住文字。
-      // 注意：html2canvas 即使传入 backgroundColor:null，仍会把画布 #canvas 元素自身的背景色
-      // （canvas.css 的 background:var(--surface)，或用户在“画布背景”里设置的 color）画进前景图，
-      // 让前景图变成不透明，从而盖住下方手画的高亮矩形。所以必须在截图时把画布背景也临时隐藏、
-      // 截完立即还原。这不影响 paperColor（它在上面已用原始背景读取，用于填充 out）。
-      const savedCanvasBg = canvas.style.background;
-      canvas.style.background = 'transparent';
-      let contentLayer;
-      try {
-        contentLayer = await html2canvas(canvas, {
-          backgroundColor: null,
-          scale,
-          useCORS: true,
-          logging: false,
-        });
-      } finally {
-        if (savedCanvasBg) canvas.style.background = savedCanvasBg;
-        else canvas.style.removeProperty('background');
-      }
-      const out = document.createElement('canvas');
-      out.width = contentLayer.width;
-      out.height = contentLayer.height;
-      const ctx = out.getContext('2d');
-      ctx.fillStyle = paperColor;
-      ctx.fillRect(0, 0, out.width, out.height);
-      highlightRects.forEach(r => {
-        ctx.fillStyle = r.color;
-        ctx.fillRect(
-          (r.left - canvasRect.left) * scale,
-          (r.top - canvasRect.top) * scale,
-          r.width * scale,
-          r.height * scale
-        );
+      return await html2canvas(canvas, {
+        backgroundColor: paperColor,
+        scale,
+        useCORS: true,
+        logging: false,
+        // 逐字符绘制而不是整段 fillText，对非标准字体的字距更准
+        letterRendering: true, 
       });
-      ctx.drawImage(contentLayer, 0, 0);
-      return out;
     } finally {
-      if (restoreHighlight) restoreHighlight();
       currentEls.forEach(el => el.classList.add('current'));
-      // 用 removeProperty 避免空字符串覆盖 CSS 文件中的 transform
       if (saved.transform) canvas.style.transform = saved.transform;
       else canvas.style.removeProperty('transform');
       if (saved.transformOrigin) canvas.style.transformOrigin = saved.transformOrigin;
       else canvas.style.removeProperty('transformOrigin');
       if (saved.marginBottom) canvas.style.marginBottom = saved.marginBottom;
       else canvas.style.removeProperty('marginBottom');
+      //把boxshadow也清空了
+      if (saved.boxShadow) canvas.style.boxShadow = saved.boxShadow;  
+      else canvas.style.removeProperty('boxShadow'); 
     }
   }
 
@@ -2951,6 +2693,74 @@
     a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /* ============ 导出图片弹窗（倍率选择 + 尺寸预览） ============ */
+  async function showExportImageModal() {
+    const canvasW = parseFloat(canvas.style.width) || 640;
+    const canvasH = canvas.scrollHeight;
+    const isNarrow = canvasW < 400;
+
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay';
+      const dlg = document.createElement('div');
+      dlg.className = 'modal';
+      dlg.style.maxWidth = '380px';
+
+      dlg.innerHTML = `
+        <p class="modal-msg" style="margin-bottom:16px;font-weight:600;">导出图片</p>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;margin-bottom:6px;font-size:13px;color:var(--muted);">文件名</label>
+          <input type="text" id="exportImgName" value="长图-图片" style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);">放大倍率</label>
+          <div id="exportScaleOptions" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;"><input type="radio" name="exportScale" value="1" checked> 1×</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;"><input type="radio" name="exportScale" value="2"> 2×</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;"><input type="radio" name="exportScale" value="3"> 3×</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;"><input type="radio" name="exportScale" value="4"> 4×</label>
+          </div>
+        </div>
+        <div id="exportSizePreview" style="margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--muted);line-height:1.6;">
+          预估尺寸：<strong>${Math.round(canvasW)} × ${Math.round(canvasH)} px</strong>
+        </div>
+        ${isNarrow ? `<div style="margin-bottom:12px;padding:10px 12px;background:rgba(255,180,0,0.08);border:1px solid rgba(255,180,0,0.25);border-radius:var(--radius-sm);font-size:12px;color:#d4a017;line-height:1.5;">💡 当前画布宽 ${Math.round(canvasW)}px，导出后在手机上查看可能会模糊，建议选 2× 以上。</div>` : ''}
+        <div class="modal-btns" style="margin-top:4px;">
+          <button type="button" class="modal-btn" id="exportImgCancel">取消</button>
+          <button type="button" class="modal-btn primary" id="exportImgConfirm">导出</button>
+        </div>
+      `;
+      ov.appendChild(dlg);
+      document.body.appendChild(ov);
+
+      const nameInput = dlg.querySelector('#exportImgName');
+      const sizePreview = dlg.querySelector('#exportSizePreview');
+      const scaleRadios = dlg.querySelectorAll('input[name="exportScale"]');
+
+      function updatePreview() {
+        const scale = Number(dlg.querySelector('input[name="exportScale"]:checked').value);
+        const w = Math.round(canvasW * scale);
+        const h = Math.round(canvasH * scale);
+        sizePreview.innerHTML = `预估尺寸：<strong>${w} × ${h} px</strong>（${scale}×）`;
+      }
+      scaleRadios.forEach(r => r.addEventListener('change', updatePreview));
+
+      dlg.querySelector('#exportImgCancel').addEventListener('click', () => { ov.remove(); resolve(null); });
+      dlg.querySelector('#exportImgConfirm').addEventListener('click', async () => {
+        const name = nameInput.value.trim();
+        if (!name) { alert('请输入文件名'); return; }
+        const scale = Number(dlg.querySelector('input[name="exportScale"]:checked').value);
+        ov.remove();
+        await exportToPng(scale, '图片', name);
+        resolve(name);
+      });
+      // 点击遮罩关闭
+      ov.addEventListener('click', e => { if (e.target === ov) { ov.remove(); resolve(null); } });
+      nameInput.focus();
+      nameInput.select();
+    });
   }
 
   async function exportToPng(scale = 2, label = '图片', fileBaseName = '') {
@@ -2967,30 +2777,453 @@
   async function exportSplitZip(fileBaseName = '') {
     if (!ensureExportLibraries()) return;
     if (typeof JSZip !== 'function') { alert('压缩组件还没加载完成，请检查网络连接后重试'); return; }
-    const outPreview = await renderCanvasImage(1); if (!outPreview) return;
-    const totalW = outPreview.width, totalH = outPreview.height;
-    const info = `当前图片总尺寸：${totalW} × ${totalH} px。\n请输入每张切片的高度（像素），建议 2048～4096：`;
-    const heightRaw = await showTextInputModal(info, '4096', '下一步'); if (heightRaw === null) return;
-    const sliceHeight = Number(heightRaw);
-    if (!Number.isInteger(sliceHeight) || sliceHeight < 1 || sliceHeight > 16384) { alert('切片高度必须是 1～16384 之间的整数。'); return; }
+
+    // Step 1: 选择切分方式
+    const splitMode = await showSplitModeModal();
+    if (!splitMode) return;
+
+    // Step 2: 获取段落边界
+    const blocks = Array.from(canvas.querySelectorAll(BLOCK_TAGS.join(',')));
+    const blockBoundaries = getBlockBoundaries(blocks);
+    if (blockBoundaries.length < 2) { alert('内容太少，无法切分'); return; }
+
+    // Step 3: 计算初始切分位置
+    const canvasH = canvas.scrollHeight;
+    const padTop = parseFloat(canvas.style.paddingTop || 0);
+    const padBottom = parseFloat(canvas.style.paddingBottom || 0);
+    const contentTop = padTop;
+    const contentBottom = canvasH - padBottom;
+    const contentH = contentBottom - contentTop;
+
+    let initialSplits;
+    if (splitMode.mode === 'height') {
+      initialSplits = computeSplitsByHeight(contentTop, contentBottom, blockBoundaries, splitMode.value);
+    } else {
+      initialSplits = computeSplitsByCount(contentTop, contentBottom, blockBoundaries, splitMode.value);
+    }
+
+    // Step 4: 进入交互式编辑器
+    const finalSplits = await showSliceEditor(blockBoundaries, contentTop, contentBottom, initialSplits);
+    if (!finalSplits) return;
+
+    // Step 5: 输入文件名并导出
     const suggested = fileBaseName || '长图切片';
-    const filename = await showTextInputModal('请输入 ZIP 文件名：', suggested, '导出'); if (filename === null) return;
-    const btn = document.getElementById('exportMenuBtn'); const old = btn.textContent; btn.textContent='切片中…'; btn.disabled=true;
+    const filename = await showTextInputModal('请输入 ZIP 文件名：', suggested, '导出');
+    if (filename === null) return;
+
+    const btn = document.getElementById('exportMenuBtn');
+    const old = btn.textContent;
+    btn.textContent = '切片中…';
+    btn.disabled = true;
     try {
-      const outCanvas = await renderCanvasImage(2); if (!outCanvas) return;
-      const zip = new JSZip(); const total = Math.ceil(outCanvas.height / sliceHeight);
-      for (let i=0; i<total; i++) { const y=i*sliceHeight, h=Math.min(sliceHeight,outCanvas.height-y); const part=document.createElement('canvas'); part.width=outCanvas.width; part.height=h; const ctx=part.getContext('2d'); ctx.drawImage(outCanvas,0,y,outCanvas.width,h,0,0,outCanvas.width,h); const blob=await new Promise(r=>part.toBlob(r,'image/png')); if(!blob) throw new Error('slice toBlob failed'); zip.file(`${sanitizeFileName(filename,'长图切片')}-${String(i+1).padStart(3,'0')}.png`,blob); }
-      const zipBlob = await zip.generateAsync({type:'blob',compression:'STORE'}); downloadBlob(zipBlob, sanitizeFileName(filename,'长图切片').replace(/\.zip$/i,'')+'.zip');
-    } catch (err) { console.error('切片导出失败',err); alert('切片导出失败，请重试或查看控制台。'); }
-    finally { btn.textContent=old; btn.disabled=false; }
+      const outCanvas = await renderCanvasImage(2);
+      if (!outCanvas) return;
+
+      const scale = 2;
+      const imgPadTop = Math.round(padTop * scale);
+      const imgPadBottom = Math.round(padBottom * scale);
+      const imgContentTop = imgPadTop;
+      const imgContentBottom = outCanvas.height - imgPadBottom;
+      const imgContentH = imgContentBottom - imgContentTop;
+      const canvasContentH = contentBottom - contentTop;
+      const ratio = imgContentH / canvasContentH; // 用实际测量值，比固定 scale=2 更精确
+
+      const zip = new JSZip();
+      const pages = finalSplits.length + 1;
+
+      for (let i = 0; i < pages; i++) {
+        const pageStartCanvas = i === 0 ? contentTop : finalSplits[i - 1];
+        const pageEndCanvas = i === pages - 1 ? contentBottom : finalSplits[i];
+
+        const imgStart = imgContentTop + Math.round((pageStartCanvas - contentTop) * ratio);
+        const imgEnd = i === pages - 1 
+          ? imgContentBottom  // 最后一页：强制到图片内容底部，避免截断
+          : imgContentTop + Math.round((pageEndCanvas - contentTop) * ratio);
+        const imgSliceH = imgEnd - imgStart;
+
+        const part = document.createElement('canvas');
+        part.width = outCanvas.width;
+        part.height = imgSliceH + imgPadTop + imgPadBottom;
+
+        const ctx = part.getContext('2d');
+        const paperColor = getComputedStyle(canvas).backgroundColor;
+        ctx.fillStyle = paperColor;
+        ctx.fillRect(0, 0, part.width, part.height);
+        ctx.drawImage(outCanvas, 0, imgStart, outCanvas.width, imgSliceH, 0, imgPadTop, outCanvas.width, imgSliceH);
+
+        const blob = await new Promise(r => part.toBlob(r, 'image/png'));
+        if (!blob) throw new Error('slice toBlob failed');
+        zip.file(`${sanitizeFileName(filename, '长图切片')}-${String(i + 1).padStart(3, '0')}.png`, blob);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      downloadBlob(zipBlob, sanitizeFileName(filename, '长图切片').replace(/\.zip$/i, '') + '.zip');
+    } catch (err) {
+      console.error('切片导出失败', err);
+      alert('切片导出失败，请重试或查看控制台。');
+    } finally {
+      btn.textContent = old;
+      btn.disabled = false;
+    }
   }
-  const exportMenuBtn = document.getElementById('exportMenuBtn');
+
+  /* ============ 切分方式选择弹窗 ============ */
+  function showSplitModeModal() {
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay';
+      const dlg = document.createElement('div');
+      dlg.className = 'modal';
+      dlg.style.maxWidth = '360px';
+      dlg.innerHTML = `
+        <p class="modal-msg" style="margin-bottom:16px;font-weight:600;">切分图片</p>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;margin-bottom:8px;font-size:13px;color:var(--muted);">切分方式</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;flex:1;justify-content:center;"><input type="radio" name="splitMode" value="height" checked> 按高度</label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;flex:1;justify-content:center;"><input type="radio" name="splitMode" value="count"> 按份数</label>
+          </div>
+        </div>
+        <div style="margin-bottom:16px;" id="splitValueWrap">
+          <label style="display:block;margin-bottom:6px;font-size:13px;color:var(--muted);">每张切片高度（像素）</label>
+          <input type="number" id="splitValue" value="4096" min="100" max="20000" step="100" style="width:100%;padding:8px 10px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-size:14px;box-sizing:border-box;">
+        </div>
+        <div class="modal-btns">
+          <button type="button" class="modal-btn" id="splitModeCancel">取消</button>
+          <button type="button" class="modal-btn primary" id="splitModeNext">下一步</button>
+        </div>
+      `;
+      ov.appendChild(dlg);
+      document.body.appendChild(ov);
+
+      const valueWrap = dlg.querySelector('#splitValueWrap');
+      const valueInput = dlg.querySelector('#splitValue');
+      const modeRadios = dlg.querySelectorAll('input[name="splitMode"]');
+
+      modeRadios.forEach(r => r.addEventListener('change', () => {
+        const mode = dlg.querySelector('input[name="splitMode"]:checked').value;
+        if (mode === 'height') {
+          valueWrap.querySelector('label').textContent = '每张切片高度（像素）';
+          valueInput.value = '4096';
+          valueInput.min = '100';
+          valueInput.max = '20000';
+        } else {
+          valueWrap.querySelector('label').textContent = '切分份数';
+          valueInput.value = '4';
+          valueInput.min = '2';
+          valueInput.max = '20';
+        }
+      }));
+
+      dlg.querySelector('#splitModeCancel').addEventListener('click', () => { ov.remove(); resolve(null); });
+      dlg.querySelector('#splitModeNext').addEventListener('click', () => {
+        const mode = dlg.querySelector('input[name="splitMode"]:checked').value;
+        const val = Number(valueInput.value);
+        if (mode === 'height') {
+          if (!Number.isInteger(val) || val < 100 || val > 20000) { alert('高度必须是 100～20000 之间的整数'); return; }
+        } else {
+          if (!Number.isInteger(val) || val < 2 || val > 20) { alert('份数必须是 2～20 之间的整数'); return; }
+        }
+        ov.remove();
+        resolve({ mode, value: val });
+      });
+      ov.addEventListener('click', e => { if (e.target === ov) { ov.remove(); resolve(null); } });
+      valueInput.focus();
+      valueInput.select();
+    });
+  }
+
+  /* ============ 获取段落边界（相对画布顶部） ============ */
+function getBlockBoundaries(blocks) {
+  const canvasRect = canvas.getBoundingClientRect();
+
+  return blocks.map(b => {
+    const rect = b.getBoundingClientRect();
+
+    let visualBottom = rect.bottom;
+
+    const walker = document.createTreeWalker(
+      b,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          return node.textContent.trim()
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    let lastTextNode = null;
+    while (walker.nextNode()) {
+      lastTextNode = walker.currentNode;
+    }
+
+    if (lastTextNode) {
+      const range = document.createRange();
+      range.selectNodeContents(lastTextNode);
+
+      const textRects = range.getClientRects();
+      if (textRects.length > 0) {
+        visualBottom = textRects[textRects.length - 1].bottom;
+      }
+    }
+
+    return {
+      top: Math.round(rect.top - canvasRect.top),
+      bottom: Math.round(visualBottom - canvasRect.top),
+      el: b
+    };
+  }).filter(b => b.bottom > b.top);
+}
+
+  /* ============ 按高度计算初始切分位置 ============ */
+  function computeSplitsByHeight(contentTop, contentBottom, boundaries, targetHeight) {
+    const splits = [];
+    let currentY = contentTop;
+    while (true) {
+      const targetY = currentY + targetHeight;
+      if (targetY >= contentBottom) break;
+      // 找到最接近 targetY 的段落边界
+      let bestY = contentBottom;
+      let bestDist = Infinity;
+      for (const b of boundaries) {
+        if (b.bottom >= targetY - 50 && b.bottom <= targetY + 50) {
+          const dist = Math.abs(b.bottom - targetY);
+          if (dist < bestDist) { bestDist = dist; bestY = b.bottom; }
+        }
+      }
+      if (bestY === contentBottom) {
+        // 没有近似的边界，找 targetY 之后的第一个边界
+        for (const b of boundaries) {
+          if (b.bottom > targetY && b.bottom < bestY) bestY = b.bottom;
+        }
+      }
+      if (bestY >= contentBottom) break;
+      splits.push(bestY);
+      currentY = bestY;
+    }
+    return splits;
+  }
+
+  /* ============ 按份数计算初始切分位置 ============ */
+  function computeSplitsByCount(contentTop, contentBottom, boundaries, count) {
+    const contentH = contentBottom - contentTop;
+    const targetH = contentH / count;
+    const splits = [];
+    for (let i = 1; i < count; i++) {
+      const targetY = contentTop + i * targetH;
+      let bestY = contentBottom;
+      let bestDist = Infinity;
+      for (const b of boundaries) {
+        const dist = Math.abs(b.bottom - targetY);
+        if (dist < bestDist) { bestDist = dist; bestY = b.bottom; }
+      }
+      if (bestY < contentBottom && (splits.length === 0 || bestY > splits[splits.length - 1])) {
+        splits.push(bestY);
+      }
+    }
+    return splits;
+  }
+
+  /* ============ 交互式切分编辑器 ============ */
+  function showSliceEditor(boundaries, contentTop, contentBottom, initialSplits) {
+    return new Promise((resolve) => {
+      const previousMode = currentEditorMode;
+      const scrollWrap = canvas.parentElement;
+      if (!scrollWrap) { setMode(previousMode, false); resolve(null); return; }
+
+      // 切片编辑器打开期间禁止画布进入可输入状态，避免移动端长按/拖动切割线时
+      // 意外弹出屏幕键盘
+      setMode('edit', false);
+
+      // 把 layer 放在 canvas 内部，自动跟随 canvas 的位置、大小和滚动
+      // 不需要任何坐标转换，避免 offsetLeft/getBoundingClientRect 的精度问题
+      const layer = document.createElement('div');
+      layer.className = 'slice-editor-layer';
+      layer.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;z-index:10;overflow:hidden;pointer-events:none;';
+
+      // 确保 canvas 是定位上下文
+      const origCanvasPosition = canvas.style.position;
+      if (getComputedStyle(canvas).position === 'static') canvas.style.position = 'relative';
+
+      let splits = initialSlices(initialSplits, contentTop, contentBottom);
+      const totalPages = splits.length + 1;
+
+      // 创建区域底色
+      const regions = [];
+      function renderRegions() {
+        regions.forEach(r => r.remove());
+        regions.length = 0;
+        const colors = ['rgba(74,158,255,0.08)', 'rgba(100,200,120,0.08)'];
+        for (let i = 0; i < totalPages; i++) {
+          const top = i === 0 ? 0 : splits[i - 1];
+          const bottom = i === totalPages - 1 ? canvas.scrollHeight : splits[i];
+          const region = document.createElement('div');
+          region.style.cssText = `position:absolute;left:0;top:${top}px;width:100%;height:${bottom - top}px;background:${colors[i % 2]};pointer-events:none;`;
+          layer.appendChild(region);
+          regions.push(region);
+
+          // 页码标签
+          const label = document.createElement('div');
+          const pageH = Math.round(bottom - top);
+          label.textContent = `第${i + 1}页 / 共${totalPages}页`;
+          label.style.cssText = `position:absolute;left:8px;top:${top + 8}px;background:rgba(0,0,0,0.6);color:#fff;font-size:11px;padding:3px 8px;border-radius:4px;pointer-events:none;z-index:12;`;
+          layer.appendChild(label);
+          regions.push(label);
+        }
+      }
+
+      // 创建可拖动切分线
+      const handles = [];
+      function renderHandles() {
+        handles.forEach(h => {
+          h.el.remove();
+          h.handle.remove();
+         h.info.remove();
+         });
+        handles.length = 0;
+        splits.forEach((y, idx) => {
+          const line = document.createElement('div');
+          line.style.cssText = `position:absolute;left:0;top:${y}px;width:100%;height:0;border-top:2px dashed #ff4444;cursor:ns-resize;z-index:13;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;`;
+          layer.appendChild(line);
+
+          const handle = document.createElement('div');
+          handle.style.cssText = `position:absolute;left:50%;top:${y - 8}px;transform:translateX(-50%);width:32px;height:16px;background:#ff4444;border-radius:8px;cursor:ns-resize;z-index:14;display:flex;align-items:center;justify-content:center;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;`;
+          handle.innerHTML = `<span style="color:#fff;font-size:10px;">⋮⋮</span>`;
+          layer.appendChild(handle);
+
+          const info = document.createElement('div');
+          const pageH = idx + 1 < totalPages ? splits[idx] - (idx === 0 ? 0 : splits[idx - 1]) : canvas.scrollHeight - y;
+          info.textContent = `高度 ${Math.round(pageH)}px`;
+          info.style.cssText = `position:absolute;right:8px;top:${y - 18}px;background:rgba(255,68,68,0.9);color:#fff;font-size:10px;padding:2px 6px;border-radius:3px;pointer-events:none;z-index:14;`;
+          layer.appendChild(info);
+
+          handles.push({ el: line, handle: handle, info: info, index: idx });
+
+          // 拖动事件（pointer 事件 + setPointerCapture 确保移动端能正常拖动）
+          let dragging = false;
+          let startY = 0;
+          let origSplitY = 0;
+
+          function onPointerDown(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dragging = true;
+            startY = e.clientY;
+            origSplitY = splits[idx];
+            document.body.style.cursor = 'ns-resize';
+            try { (e.target).setPointerCapture(e.pointerId); } catch (err) {}
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+          }
+
+          function onPointerMove(e) {
+            if (!dragging) return;
+            e.preventDefault();
+            const delta = e.clientY - startY;
+            let newY = origSplitY + delta;
+            const minY = idx === 0 ? contentTop : splits[idx - 1] + 20;
+            const maxY = idx === splits.length - 1 ? contentBottom - 20 : splits[idx + 1] - 20;
+            newY = Math.max(minY, Math.min(maxY, newY));
+
+            let snapped = newY;
+            let snappedInfo = '';
+            for (const b of boundaries) {
+              if (Math.abs(b.bottom - newY) < 15) {
+                snapped = b.bottom;
+                snappedInfo = ' · 已吸附';
+                break;
+              }
+            }
+
+            splits[idx] = snapped;
+            line.style.top = snapped + 'px';
+            handle.style.top = (snapped - 8) + 'px';
+            info.style.top = (snapped - 18) + 'px';
+            info.textContent = `高度 ${Math.round(snapped - (idx === 0 ? 0 : splits[idx - 1]))}px${snappedInfo}`;
+
+            if (idx + 1 < handles.length) {
+              const nextH = handles[idx + 1];
+              const nextPageH = Math.round(splits[idx + 1] - snapped);
+              nextH.info.textContent = `高度 ${nextPageH}px`;
+            }
+
+            renderRegions();
+          }
+
+          function onPointerUp(e) {
+            dragging = false;
+            document.body.style.cursor = '';
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            try { (e.target).releasePointerCapture(e.pointerId); } catch (err) {}
+          }
+
+          line.addEventListener('pointerdown', onPointerDown);
+          handle.addEventListener('pointerdown', onPointerDown);
+        });
+      }
+
+      function initialSlices(initial, top, bottom) {
+        const s = initial.slice();
+        return s.filter(y => y > top + 20 && y < bottom - 20);
+      }
+
+      renderRegions();
+      renderHandles();
+
+      canvas.appendChild(layer);
+
+      // 顶部信息条
+      const isMobile = window.matchMedia('(max-width: 720px)').matches;
+      const infoBar = document.createElement('div');
+      infoBar.className = 'slice-editor-infobar';
+      infoBar.style.cssText = `position:fixed;top:${isMobile ? '56px' : '12px'};left:50%;transform:translateX(-50%);width:fit-content;max-width:90%;background:rgba(0,0,0,0.8);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;pointer-events:auto;display:flex;gap:12px;align-items:center;z-index:100;flex-wrap:wrap;`;
+      infoBar.innerHTML = `
+        <button type="button" id="sliceEditorReset" style="padding:4px 10px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;">重置位置</button>
+        <span id="sliceEditorInfo">共 ${totalPages} 页</span>
+        <button type="button" id="sliceEditorCancel" style="padding:4px 10px;border:1px solid rgba(255,255,255,0.3);background:transparent;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+        <button type="button" id="sliceEditorConfirm" style="padding:4px 10px;border:none;background:#4a9eff;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;">确认导出</button>
+      `;
+      document.body.appendChild(infoBar);
+
+      function cleanup() {
+        layer.remove();
+        infoBar.remove();
+        document.body.style.cursor = '';
+        if (origCanvasPosition) canvas.style.position = origCanvasPosition;
+        else canvas.style.removeProperty('position');
+        setMode(previousMode, false);
+      }
+
+function updateInfo() {
+  const heights = [];
+  for (let i = 0; i < totalPages; i++) {
+    const top = i === 0 ? 0 : splits[i - 1];
+    const bottom = i === totalPages - 1 ? canvas.scrollHeight : splits[i];
+    heights.push(Math.round(bottom - top));
+  }
+  document.getElementById('sliceEditorInfo').textContent =
+    `共 ${totalPages} 页 · 高度: ${heights.join(' / ')} px`;
+}
+
+      infoBar.querySelector('#sliceEditorReset').addEventListener('click', () => {
+        splits = initialSlices(initialSplits, contentTop, contentBottom);
+        renderRegions();
+        renderHandles();
+        updateInfo();
+      });
+      infoBar.querySelector('#sliceEditorCancel').addEventListener('click', () => { cleanup(); resolve(null); });
+      infoBar.querySelector('#sliceEditorConfirm').addEventListener('click', () => { cleanup(); resolve(splits); });
+    });
+  }
+
   const exportMenu = document.getElementById('exportMenu');
   exportMenuBtn.addEventListener('click', () => { exportMenu.hidden=!exportMenu.hidden; });
   exportMenu.querySelectorAll('[data-export-action]').forEach(item => item.addEventListener('click', async () => {
     exportMenu.hidden=true; const action=item.dataset.exportAction;
-    if (action === 'png') { const n=await showTextInputModal('请输入图片文件名：','长图-图片','导出'); if(n!==null) await exportToPng(2,'图片',n); }
-    else if (action === 'png-hd') { const n=await showTextInputModal('请输入高清图片文件名：','长图-高清图片','导出'); if(n!==null) await exportToPng(4,'高清图片',n); }
+    if (action === 'png') { await showExportImageModal(); }
     else if (action === 'split-zip') { await exportSplitZip(); }
     else if (action === 'json') { const n=await showTextInputModal('请输入数据文件名：','长图草稿','导出'); if(n!==null) await exportDataJson(n); }
   }));
@@ -2998,8 +3231,7 @@
 
 
   function updateCanvasMetrics() {
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.round(canvas.scrollWidth || rect.width);
+    const width = Math.round(parseFloat(canvas.style.width) || 640);
     const height = Math.round(canvas.scrollHeight);
     const el = document.getElementById('canvasMetrics');
     if (el) el.textContent = `画布：宽 ${width} px × 高 ${height} px`;
@@ -3038,11 +3270,23 @@
     let missing = [];
     let manifestOk = false;
     try {
-      const resp = await fetch('font/fonts.json');
-      if (!resp.ok) throw new Error('fonts.json HTTP ' + resp.status);
+      const resp = await fetch('font/fontsV.1.0.2.json');
+      if (!resp.ok) throw new Error('fontsv.1.0.2.json HTTP ' + resp.status);
       const data = await resp.json();
       FONT_MANIFEST = data.fonts || [];
       manifestOk = true;
+      //补一份真正写进样式表的 @font-face，供 html2canvas 的样式解析识别
+      const styleEl = document.createElement('style');
+      styleEl.textContent = FONT_MANIFEST.map(f => `
+        @font-face {
+          font-family: '${f.family}';
+          src: url('font/${f.file}') format('${f.format || guessFormat(f.file)}');
+          ${f.weight ? `font-weight: ${f.weight};` : ''}
+          font-display: swap;
+        }
+      `).join('\n');
+      document.head.appendChild(styleEl);
+
       missing = await loadFontsFromManifest(FONT_MANIFEST);
       buildFontSelects(FONT_MANIFEST);
     } catch (e) {
@@ -3050,7 +3294,6 @@
     }
     // 进入网站：先完成 IndexedDB 项目恢复，再进入（避免默认内容闪现/覆盖用户项目）
     await restoreProject();
-    normalizeAll();
     updateUndoButtons();
     updateSelectionUI();
     render();
