@@ -1,0 +1,14 @@
+{
+  "format": "longimage-editor",
+  "version": 1,
+  "html": "<!--StartFragment--><p class=\"\" style=\"writing-mode: vertical-rl; text-orientation: upright; width: fit-content; margin-left: auto; margin-right: auto; text-align: center; font-size: 30px; letter-spacing: 8px; margin-bottom: 34px;\"><span data-fid=\"fid_0pn4_2\" style=\"font-weight: bold;\">更新日志</span></p><p class=\"\" style=\"text-align: center; margin-bottom: 62px;\">——————————</p><p class=\"\" style=\"text-align: left;\">Stable1.01版本 2026年8月24日更新：</p><p class=\"\" style=\"text-align: left;\">修改了《使用指南》的错字和添加了部分内容。</p><p class=\"\" style=\"text-align: left;\">—</p><p class=\"\">Stable1.02版本 2026年8月26日更新：</p><p class=\"\">理论上修复了导出图片时，某些字体出现字距过宽等异常显示情况的bug。</p><p class=\"\">修改了《使用指南》的错字和添加了部分内容。</p><p class=\"\">—</p><p class=\"\">Stable1.02版本 2026年8月27日更新：</p><p>主题切换修改：canvas 内文字颜色不再跟随主题切换变化</p><p class=\"\">导出图片功能精确和合并：统一了滑块数值与画布属性显示；scale=1 时导出结果与网页显示数据一致</p><p class=\"\">换行时属性继承调整：span 属性不跨行继承，仅 p 属性继承；外部粘贴内容自动继承上一行 p 属性</p><p class=\"\">复制粘贴机制修改：支持带属性复制 canvas 内文字</p><p class=\"\">支持切割图片导出：进入切割界面后可自由拖动切割线的位置，切图会自动加入上下边距</p><p class=\"\">为《使用指南》添加了部分内容。</p><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--StartFragment--><!--EndFragment--><!--EndFragment-->",
+  "canvasStyle": {
+    "background": "#FBFBFB",
+    "width": "640px",
+    "paddingLeft": "70px",
+    "paddingRight": "70px",
+    "paddingTop": "74px",
+    "paddingBottom": "74px"
+  },
+  "savedAt": 1787835232944
+}

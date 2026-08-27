@@ -41,4 +41,4 @@
 #canvas pre, #canvas code { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 #canvas p.current { outline: 1px dashed var(--accent); outline-offset: 4px; }
 
-#canvas { color: var(--canvas-text, var(--text)); }
+#canvas { color: #000000; }
