@@ -3270,8 +3270,8 @@ function updateInfo() {
     let missing = [];
     let manifestOk = false;
     try {
-      const resp = await fetch('font/fontsV.1.0.2.json');
-      if (!resp.ok) throw new Error('fontsV.1.0.2.json HTTP ' + resp.status);
+      const resp = await fetch('font/fontsv.1.0.2.json');
+      if (!resp.ok) throw new Error('fontsv.1.0.2.json HTTP ' + resp.status);
       const data = await resp.json();
       FONT_MANIFEST = data.fonts || [];
       manifestOk = true;
